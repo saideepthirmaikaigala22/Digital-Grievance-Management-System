@@ -5,12 +5,16 @@ const db = require("./db");
 const authRoutes = require("./routes/authRoutes");
 const complaintRoutes = require("./routes/complaintRoutes");
 const app = express();
+app.use(cors({
+  origin: "https://digital-grievance-management-system.vercel.app",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 app.use("/api/auth", authRoutes);
 app.use("/api/complaints", complaintRoutes);
-app.use(cors());
-app.use(express.json());
 
 app.get("/", (req, res) => {
   res.json({
