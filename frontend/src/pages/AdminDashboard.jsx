@@ -6,7 +6,9 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   const loadComplaints = () => {
-    fetch("/api/complaints/all")
+    const API_URL = import.meta.env.VITE_API_URL;
+
+fetch(`${API_URL}/api/complaints/all`)
       .then((response) => response.json())
       .then((data) => {
         setComplaints(data);

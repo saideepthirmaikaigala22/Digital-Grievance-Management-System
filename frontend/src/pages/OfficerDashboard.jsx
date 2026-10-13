@@ -7,12 +7,16 @@ function OfficerDashboard() {
 
   const user = JSON.parse(localStorage.getItem("user"));
 
-  const loadComplaints = () => {
-    fetch("/api/complaints/all")
-      .then((response) => response.json())
-      .then((data) => setComplaints(data))
-      .catch((error) => console.error(error));
-  };
+  
+const loadComplaints = () => {
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  fetch(`${API_URL}/api/complaints/all`)
+    .then((response) => response.json())
+    .then((data) => setComplaints(data))
+    .catch((error) => console.error(error));
+};
+
 
   useEffect(() => {
     loadComplaints();
@@ -20,8 +24,10 @@ function OfficerDashboard() {
 
   const updateStatus = async (complaintId, status) => {
     try {
-      const response = await fetch(
-        `/api/complaints/update-status/${complaintId}`,
+     const API_URL = import.meta.env.VITE_API_URL;
+
+const response = await fetch(
+  `${API_URL}/api/complaints/update-status/${complaintId}`,
         {
           method: "PUT",
           headers: {
@@ -52,8 +58,10 @@ function OfficerDashboard() {
 
   const escalateComplaint = async (complaintId) => {
     try {
-      const response = await fetch(
-        `/api/complaints/escalate/${complaintId}`,
+      const API_URL = import.meta.env.VITE_API_URL;
+
+const response = await fetch(
+  `${API_URL}/api/complaints/escalate/${complaintId}`,
         {
           method: "PUT",
           headers: {

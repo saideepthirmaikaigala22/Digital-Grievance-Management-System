@@ -57,7 +57,9 @@ function SubmitComplaint() {
         data.append("supporting_file", fileInput.files[0]);
       }
 
-      const response = await fetch("/api/complaints/submit", {
+      const API_URL = import.meta.env.VITE_API_URL;
+
+const response = await fetch(`${API_URL}/api/complaints/submit`, {
         method: "POST",
         body: data,
       });
