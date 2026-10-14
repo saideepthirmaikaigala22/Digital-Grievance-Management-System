@@ -1,26 +1,65 @@
+
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
 function AdminDashboard() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
-  const loadComplaints = () => {
-    const API_URL = import.meta.env.VITE_API_URL;
+  const navigate = useNavigate();
 
-fetch(`${API_URL}/api/complaints/all`)
-      .then((response) => response.json())
-      .then((data) => {
-        setComplaints(data);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error(error);
-        setLoading(false);
+  const token = localStorage.getItem("token");
+  const storedUser = localStorage.getItem("user");
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  const isAdmin = user?.role === "Admin";
+
+  const loadComplaints = async () => {
+    try {
+      setLoading(true);
+      setMessage("");
+
+      const response = await fetch(`${API_URL}/api/complaints/all`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.message || "Failed to load complaints.");
+        return;
+      }
+
+      setComplaints(data);
+    } catch (error) {
+      console.error(error);
+      setMessage("Unable to connect to the server.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
+    if (!token || !user) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    if (!isAdmin) {
+      navigate(
+        user.role === "Officer"
+          ? "/officer-dashboard"
+          : "/citizen-dashboard",
+        { replace: true }
+      );
+      return;
+    }
+
     loadComplaints();
   }, []);
 
@@ -45,28 +84,20 @@ fetch(`${API_URL}/api/complaints/all`)
       complaint.status === "Resolved" ||
       complaint.status === "Closed"
   ).length;
-const categoryCounts = complaints.reduce((acc, complaint) => {
-  acc[complaint.category] = (acc[complaint.category] || 0) + 1;
-  return acc;
-}, {});
+
+  const categoryCounts = complaints.reduce((acc, complaint) => {
+    acc[complaint.category] = (acc[complaint.category] || 0) + 1;
+    return acc;
+  }, {});
+
+  if (!token || !user || !isAdmin) {
+    return null;
+  }
+
   return (
     <>
       <Navbar />
-<section className="complaints-section">
-  <div className="section-heading">
-    <h2>Complaint Analytics</h2>
-    <span>Category-wise complaints</span>
-  </div>
 
-  <div className="stats-grid">
-    {Object.entries(categoryCounts).map(([category, count]) => (
-      <div className="stat-card" key={category}>
-        <span>{category}</span>
-        <strong>{count}</strong>
-      </div>
-    ))}
-  </div>
-</section>
       <main className="dashboard-page">
         <div className="dashboard-header">
           <div>
@@ -78,6 +109,8 @@ const categoryCounts = complaints.reduce((acc, complaint) => {
             </p>
           </div>
         </div>
+
+        {message && <p className="success-message">{message}</p>}
 
         <section className="stats-grid">
           <div className="stat-card">
@@ -103,6 +136,22 @@ const categoryCounts = complaints.reduce((acc, complaint) => {
           <div className="stat-card">
             <span>Resolved</span>
             <strong>{resolved}</strong>
+          </div>
+        </section>
+
+        <section className="complaints-section">
+          <div className="section-heading">
+            <h2>Complaint Analytics</h2>
+            <span>Category-wise complaints</span>
+          </div>
+
+          <div className="stats-grid">
+            {Object.entries(categoryCounts).map(([category, count]) => (
+              <div className="stat-card" key={category}>
+                <span>{category}</span>
+                <strong>{count}</strong>
+              </div>
+            ))}
           </div>
         </section>
 

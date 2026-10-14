@@ -1,21 +1,52 @@
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 function CitizenDashboard() {
+  const navigate = useNavigate();
+
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const user = JSON.parse(localStorage.getItem("user") || "null");
+  let user = null;
+  let token = null;
+
+  try {
+    const storedUser = localStorage.getItem("user");
+    token = localStorage.getItem("token");
+    user = storedUser ? JSON.parse(storedUser) : null;
+  } catch {
+    user = null;
+  }
 
   useEffect(() => {
-    if (!user?.id) {
+    if (!token || !user?.id) {
       setLoading(false);
-      setError("Please log in to view your complaints.");
+      navigate("/login");
+      return;
+    }
+
+    if (user.role !== "Citizen") {
+      setLoading(false);
+
+      if (user.role === "Admin") {
+        navigate("/admin-dashboard");
+      } else if (user.role === "Officer") {
+        navigate("/officer-dashboard");
+      } else {
+        navigate("/login");
+      }
+
+      return;
+    }
+
+    if (!API_URL) {
+      setLoading(false);
+      setError("Server configuration is missing. Please try again later.");
       return;
     }
 
@@ -25,11 +56,32 @@ function CitizenDashboard() {
         setError("");
 
         const response = await fetch(
-          `${API_URL}/api/complaints/my-complaints/${user.id}`
+          `${API_URL}/api/complaints/my-complaints/${user.id}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
 
+        if (response.status === 401) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          navigate("/login");
+          return;
+        }
+
+        if (response.status === 403) {
+          throw new Error(
+            "You are not authorized to view these complaints."
+          );
+        }
+
         if (!response.ok) {
-          throw new Error(`Failed to load complaints (${response.status})`);
+          throw new Error(
+            `Failed to load complaints (${response.status})`
+          );
         }
 
         const data = await response.json();
@@ -48,7 +100,7 @@ function CitizenDashboard() {
     };
 
     fetchComplaints();
-  }, [user?.id]);
+  }, [navigate]);
 
   const total = complaints.length;
 
@@ -142,15 +194,17 @@ function CitizenDashboard() {
 
                   <span>
                     {complaint.created_at
-                      ? new Date(complaint.created_at).toLocaleDateString(
-                          "en-IN"
-                        )
+                      ? new Date(
+                          complaint.created_at
+                        ).toLocaleDateString("en-IN")
                       : "—"}
                   </span>
 
                   <span>
                     <span
-                      className={`status status-${(complaint.status || "submitted")
+                      className={`status status-${(
+                        complaint.status || "submitted"
+                      )
                         .toLowerCase()
                         .replaceAll(" ", "-")}`}
                     >

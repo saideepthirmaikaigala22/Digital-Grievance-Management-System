@@ -31,6 +31,11 @@ function TrackComplaint() {
       return;
     }
 
+    if (!API_URL) {
+      setError("Server configuration is missing. Please try again later.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -45,11 +50,16 @@ function TrackComplaint() {
         return;
       }
 
+      if (!data.complaint) {
+        setError("Unexpected response from the server.");
+        return;
+      }
+
       setComplaint(data.complaint);
       setUpdates(Array.isArray(data.updates) ? data.updates : []);
     } catch (err) {
       console.error("Error tracking complaint:", err);
-      setError("Unable to connect to the server.");
+      setError("Unable to connect to the server. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -75,6 +85,7 @@ function TrackComplaint() {
               placeholder="Example: GRV-2026-58141"
               value={complaintId}
               onChange={(event) => setComplaintId(event.target.value)}
+              required
             />
 
             <button
@@ -86,7 +97,11 @@ function TrackComplaint() {
             </button>
           </form>
 
-          {error && <p className="error-message">{error}</p>}
+          {error && (
+            <p className="error-message" role="alert">
+              {error}
+            </p>
+          )}
         </div>
 
         {complaint && (
@@ -111,7 +126,9 @@ function TrackComplaint() {
               <p>
                 <strong>Current Status:</strong>{" "}
                 <span
-                  className={`status status-${(complaint.status || "")
+                  className={`status status-${(
+                    complaint.status || ""
+                  )
                     .toLowerCase()
                     .replaceAll(" ", "-")}`}
                 >
@@ -142,9 +159,11 @@ function TrackComplaint() {
                         <h3>{update.status}</h3>
 
                         <p>
-                          {new Date(
-                            update.created_at
-                          ).toLocaleString("en-IN")}
+                          {update.created_at
+                            ? new Date(
+                                update.created_at
+                              ).toLocaleString("en-IN")
+                            : "Date unavailable"}
                         </p>
 
                         {update.remarks && <p>{update.remarks}</p>}

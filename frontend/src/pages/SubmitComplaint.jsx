@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
@@ -14,20 +15,18 @@ function SubmitComplaint() {
   const [fileName, setFileName] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (event) => {
-    setFormData({
-      ...formData,
+    setFormData((previousData) => ({
+      ...previousData,
       [event.target.name]: event.target.value,
-    });
+    }));
   };
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
-
-    if (file) {
-      setFileName(file.name);
-    }
+    setFileName(file ? file.name : "");
   };
 
   const handleSubmit = async (event) => {
@@ -36,38 +35,79 @@ function SubmitComplaint() {
     setMessage("");
     setError("");
 
-    const user = JSON.parse(localStorage.getItem("user"));
+    let user;
+    let token;
 
-    if (!user) {
-      setError("Please login before submitting a complaint.");
+    try {
+      const storedUser = localStorage.getItem("user");
+      token = localStorage.getItem("token");
+      user = storedUser ? JSON.parse(storedUser) : null;
+    } catch {
+      setError("Your login session is invalid. Please log in again.");
+      navigate("/login");
       return;
     }
+
+    if (!user || !token) {
+      setError("Please log in before submitting a complaint.");
+      navigate("/login");
+      return;
+    }
+
+    if (user.role !== "Citizen") {
+      setError("Only citizen accounts can submit complaints.");
+      return;
+    }
+
+    const API_URL = import.meta.env.VITE_API_URL;
+
+    if (!API_URL) {
+      setError("Server configuration is missing. Please try again later.");
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const data = new FormData();
 
-      data.append("user_id", user.id);
+      // The backend identifies the citizen from the verified JWT token.
+      // Do not send user_id from the browser.
       data.append("category", formData.category);
       data.append("description", formData.description);
       data.append("location", formData.location);
 
-      const fileInput = document.querySelector('input[type="file"]');
+      const fileInput = event.currentTarget.querySelector(
+        'input[type="file"]'
+      );
 
-      if (fileInput && fileInput.files[0]) {
+      if (fileInput?.files?.[0]) {
         data.append("supporting_file", fileInput.files[0]);
       }
 
-      const API_URL = import.meta.env.VITE_API_URL;
-
-const response = await fetch(`${API_URL}/api/complaints/submit`, {
-        method: "POST",
-        body: data,
-      });
+      const response = await fetch(
+        `${API_URL}/api/complaints/submit`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: data,
+        }
+      );
 
       const result = await response.json();
 
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        setError("Your session has expired. Please log in again.");
+        navigate("/login");
+        return;
+      }
+
       if (!response.ok) {
-        setError(result.message);
+        setError(result.message || "Unable to submit your complaint.");
         return;
       }
 
@@ -83,12 +123,18 @@ const response = await fetch(`${API_URL}/api/complaints/submit`, {
 
       setFileName("");
 
+      if (fileInput) {
+        fileInput.value = "";
+      }
+
       setTimeout(() => {
         navigate("/citizen-dashboard");
       }, 2500);
     } catch (error) {
-      console.error(error);
-      setError("Unable to connect to the server.");
+      console.error("Complaint submission error:", error);
+      setError("Unable to connect to the server. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -166,8 +212,12 @@ const response = await fetch(`${API_URL}/api/complaints/submit`, {
               </p>
             )}
 
-            <button type="submit" className="auth-btn">
-              Submit Complaint
+            <button
+              type="submit"
+              className="auth-btn"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Submitting..." : "Submit Complaint"}
             </button>
           </form>
 
