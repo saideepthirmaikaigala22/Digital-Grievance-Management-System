@@ -1,30 +1,54 @@
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function CitizenDashboard() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = JSON.parse(localStorage.getItem("user") || "null");
 
   useEffect(() => {
-    if (!user) {
+    if (!user?.id) {
       setLoading(false);
+      setError("Please log in to view your complaints.");
       return;
     }
 
-    fetch(`/api/complaints/my-complaints/${user.id}`)
-      .then((response) => response.json())
-      .then((data) => {
+    const fetchComplaints = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch(
+          `${API_URL}/api/complaints/my-complaints/${user.id}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to load complaints (${response.status})`);
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error("Unexpected response from the server.");
+        }
+
         setComplaints(data);
+      } catch (err) {
+        console.error("Error loading complaints:", err);
+        setError(err.message || "Unable to load complaints.");
+      } finally {
         setLoading(false);
-      })
-      .catch((error) => {
-        console.error(error);
-        setLoading(false);
-      });
-  }, [user]);
+      }
+    };
+
+    fetchComplaints();
+  }, [user?.id]);
 
   const total = complaints.length;
 
@@ -54,9 +78,7 @@ function CitizenDashboard() {
           <div>
             <p className="hero-tag">CITIZEN PORTAL</p>
 
-            <h1>
-              Welcome, {user?.name || "Citizen"} 👋
-            </h1>
+            <h1>Welcome, {user?.name || "Citizen"} 👋</h1>
 
             <p>Manage and track your grievances from one place.</p>
           </div>
@@ -96,6 +118,8 @@ function CitizenDashboard() {
 
           {loading ? (
             <p>Loading complaints...</p>
+          ) : error ? (
+            <p role="alert">{error}</p>
           ) : complaints.length === 0 ? (
             <p>No complaints submitted yet.</p>
           ) : (
@@ -117,23 +141,27 @@ function CitizenDashboard() {
                   <span>{complaint.category}</span>
 
                   <span>
-                    {new Date(complaint.created_at).toLocaleDateString(
-                      "en-IN"
-                    )}
+                    {complaint.created_at
+                      ? new Date(complaint.created_at).toLocaleDateString(
+                          "en-IN"
+                        )
+                      : "—"}
                   </span>
 
                   <span>
                     <span
-                      className={`status status-${complaint.status
+                      className={`status status-${(complaint.status || "submitted")
                         .toLowerCase()
                         .replaceAll(" ", "-")}`}
                     >
-                      {complaint.status}
+                      {complaint.status || "Submitted"}
                     </span>
                   </span>
 
                   <Link
-                    to={`/track-complaint?complaintId=${complaint.complaint_id}`}
+                    to={`/track-complaint?complaintId=${encodeURIComponent(
+                      complaint.complaint_id
+                    )}`}
                   >
                     View
                   </Link>
