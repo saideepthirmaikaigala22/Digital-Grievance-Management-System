@@ -1,6 +1,9 @@
+
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 function TrackComplaint() {
   const [searchParams] = useSearchParams();
@@ -19,9 +22,11 @@ function TrackComplaint() {
 
     setError("");
     setComplaint(null);
-    setUpdates("");
+    setUpdates([]);
 
-    if (!complaintId.trim()) {
+    const id = complaintId.trim();
+
+    if (!id) {
       setError("Please enter a complaint ID.");
       return;
     }
@@ -30,25 +35,24 @@ function TrackComplaint() {
 
     try {
       const response = await fetch(
-        `/api/complaints/track/${complaintId.trim()}`
+        `${API_URL}/api/complaints/track/${encodeURIComponent(id)}`
       );
 
       const data = await response.json();
 
       if (!response.ok) {
         setError(data.message || "Complaint not found.");
-        setLoading(false);
         return;
       }
 
       setComplaint(data.complaint);
-      setUpdates(data.updates);
-    } catch (error) {
-      console.error(error);
+      setUpdates(Array.isArray(data.updates) ? data.updates : []);
+    } catch (err) {
+      console.error("Error tracking complaint:", err);
       setError("Unable to connect to the server.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -73,16 +77,16 @@ function TrackComplaint() {
               onChange={(event) => setComplaintId(event.target.value)}
             />
 
-            <button type="submit" className="auth-btn">
+            <button
+              type="submit"
+              className="auth-btn"
+              disabled={loading}
+            >
               {loading ? "Checking..." : "Track Complaint"}
             </button>
           </form>
 
-          {error && (
-            <p className="error-message">
-              {error}
-            </p>
-          )}
+          {error && <p className="error-message">{error}</p>}
         </div>
 
         {complaint && (
@@ -107,7 +111,7 @@ function TrackComplaint() {
               <p>
                 <strong>Current Status:</strong>{" "}
                 <span
-                  className={`status status-${complaint.status
+                  className={`status status-${(complaint.status || "")
                     .toLowerCase()
                     .replaceAll(" ", "-")}`}
                 >
@@ -143,9 +147,7 @@ function TrackComplaint() {
                           ).toLocaleString("en-IN")}
                         </p>
 
-                        {update.remarks && (
-                          <p>{update.remarks}</p>
-                        )}
+                        {update.remarks && <p>{update.remarks}</p>}
                       </div>
                     </div>
                   ))}
